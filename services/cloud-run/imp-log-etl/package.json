@@ -12,7 +12,14 @@
     "test:coverage": "jest --coverage",
     "test:unit": "jest --testPathIgnorePatterns=integration",
     "test:integration": "RUN_INTEGRATION_TESTS=true jest --testPathPattern=integration",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "deploy:dev": "bash scripts/deploy/deploy.sh dev",
+    "deploy:staging": "bash scripts/deploy/deploy.sh staging",
+    "deploy:prod": "bash scripts/deploy/deploy.sh prod",
+    "deploy:dev:ps": "powershell -ExecutionPolicy Bypass -File scripts/deploy-ps/Deploy.ps1 dev",
+    "deploy:staging:ps": "powershell -ExecutionPolicy Bypass -File scripts/deploy-ps/Deploy.ps1 staging",
+    "deploy:prod:ps": "powershell -ExecutionPolicy Bypass -File scripts/deploy-ps/Deploy.ps1 prod",
+    "docker:build": "docker build -t imp-log-etl:latest ."
   },
   "dependencies": {
     "@google-cloud/bigquery": "^6.2.0",

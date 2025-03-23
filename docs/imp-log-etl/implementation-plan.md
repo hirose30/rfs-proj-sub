@@ -254,10 +254,72 @@ gcloud scheduler jobs create http imp-log-etl-daily \
 flowchart LR
     A[Git Commit] -->|CI/CDトリガー| B[テスト実行]
     B -->|テスト成功| C[Docker イメージビルド]
-    C -->|イメージプッシュ| D[Cloud Run デプロイ]
-    D -->|開発環境| E[開発環境テスト]
-    E -->|承認| F[ステージング環境]
-    F -->|承認| G[本番環境]
+    C -->|イメージプッシュ| D[Artifact Registry]
+    D -->|デプロイ| E[Cloud Run]
+    E -->|開発環境| F[開発環境テスト]
+    F -->|承認| G[ステージング環境]
+    G -->|承認| H[本番環境]
+```
+
+## デプロイ手順
+
+### 1. Dockerイメージのビルド
+
+```bash
+# Linux/macOS
+npm run docker:build
+
+# Windows
+npm run docker:build
+```
+
+### 2. 環境へのデプロイ
+
+#### Linux/macOS環境での実行
+
+```bash
+# 開発環境へのデプロイ
+npm run deploy:dev
+
+# ステージング環境へのデプロイ
+npm run deploy:staging
+
+# 本番環境へのデプロイ
+npm run deploy:prod
+```
+
+#### Windows環境での実行
+
+```powershell
+# 開発環境へのデプロイ
+npm run deploy:dev:ps
+
+# ステージング環境へのデプロイ
+npm run deploy:staging:ps
+
+# 本番環境へのデプロイ
+npm run deploy:prod:ps
+```
+
+各デプロイコマンドは以下の処理を行います：
+
+1. Dockerイメージにタグ付け
+2. Artifact Registryへのイメージプッシュ
+3. Cloud Runへのデプロイ
+4. Cloud Schedulerの設定
+
+### 3. サービスアカウントの設定
+
+Cloud Schedulerが Cloud Run サービスを呼び出すために必要なサービスアカウントを作成します：
+
+```bash
+# サービスアカウントの作成
+gcloud iam service-accounts create imp-log-etl-scheduler --display-name="Imp Log ETL Scheduler Service Account"
+
+# Cloud Run 呼び出し権限の付与
+gcloud projects add-iam-policy-binding PROJECT_ID \
+  --member="serviceAccount:imp-log-etl-scheduler@PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
 ```
 
 ## テスト戦略
@@ -300,11 +362,37 @@ flowchart LR
    - 詳細なエラーログ
    - 再処理APIエンドポイント
 
-3. **フェーズ3**: 環境分離設定
+3. **フェーズ3**: 環境分離設定 ✅
    - 開発/ステージング/本番環境の設定
    - 段階的デプロイメント
+   - デプロイスクリプトの作成（Linux/macOS用とWindows用）
+   - Artifact Registryリポジトリの設定
+   - Cloud Schedulerの設定
+   - サービスアカウントの作成と権限設定
 
 4. **フェーズ4**: モニタリングとアラート
    - ログ分析
    - ダッシュボード構築
    - アラート設定
+
+## 実装状況まとめ
+
+| フェーズ | 状態 | 完了日 | 備考 |
+|---------|------|-------|------|
+| フェーズ1: 基本ETL処理実装 | ✅ 完了 | 2025/3/23 | BigQueryクライアント、クエリビルダー、Cloud Run基本機能の実装完了 |
+| フェーズ2: エラーハンドリング | ✅ 完了 | 2025/3/23 | エラーログ、再処理APIエンドポイントの実装完了 |
+| フェーズ3: 環境分離設定 | ✅ 完了 | 2025/3/23 | デプロイスクリプト作成、Artifact Registry設定、Cloud Scheduler設定完了 |
+| フェーズ4: モニタリングとアラート | 🔄 未着手 | - | 次のステップとして実装予定 |
+
+### 開発環境デプロイ状況
+
+- **サービスURL**: https://imp-log-etl-dev-548006961857.asia-northeast1.run.app
+- **スケジューラー**: imp-log-etl-daily-dev (毎日JST 0:15実行)
+- **サービスアカウント**: imp-log-etl-scheduler@rfs-proj.iam.gserviceaccount.com
+- **Artifact Registryリポジトリ**: asia-northeast1-docker.pkg.dev/rfs-proj/imp-log-etl-repo/imp-log-etl-dev
+
+### 次のステップ
+
+1. ステージング環境へのデプロイ
+2. 本番環境へのデプロイ
+3. フェーズ4（モニタリングとアラート）の実装
