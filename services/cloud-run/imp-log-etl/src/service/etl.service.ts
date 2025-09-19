@@ -15,6 +15,18 @@ export interface ETLResponse {
 }
 
 /**
+ * 日付範囲ETL処理の結果インターフェース
+ */
+export interface DateRangeETLResponse {
+  success: boolean;
+  startDate: Date;
+  endDate: Date;
+  results: ETLResponse[];
+  totalRowCount: number;
+  failedDates?: Date[];
+}
+
+/**
  * ETLサービス
  * データの抽出、変換、ロードを担当
  */
@@ -25,6 +37,71 @@ export class EtlService {
   constructor() {
     this.bigQueryRepository = new BigQueryRepository();
     this.queryBuilder = new ImpQueryBuilder();
+  }
+
+  /**
+   * 指定された日付範囲のデータを処理
+   * @param startDate 開始日
+   * @param endDate 終了日
+   * @returns 処理結果
+   */
+  async processDateRange(startDate: Date, endDate: Date): Promise<DateRangeETLResponse> {
+    const formattedStartDate = DateUtil.formatDate(startDate, 'YYYY-MM-DD');
+    const formattedEndDate = DateUtil.formatDate(endDate, 'YYYY-MM-DD');
+    logger.info(`Starting ETL process for date range: ${formattedStartDate} to ${formattedEndDate}`);
+    
+    // 日付範囲を生成
+    const dateRange = DateUtil.generateDateRange(startDate, endDate);
+    
+    // 各日付に対して処理を実行
+    const results: ETLResponse[] = [];
+    const failedDates: Date[] = [];
+    let totalRowCount = 0;
+    
+    for (const date of dateRange) {
+      const formattedDate = DateUtil.formatDate(date, 'YYYY-MM-DD');
+      logger.info(`Processing date: ${formattedDate}`);
+      
+      try {
+        const result = await this.process(date);
+        results.push(result);
+        
+        if (result.success) {
+          totalRowCount += result.rowCount || 0;
+        } else {
+          failedDates.push(date);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to process data for date: ${formattedDate}`, formatError(error));
+        
+        results.push({
+          success: false,
+          processedDate: date,
+          error: errorMessage,
+        });
+        
+        failedDates.push(date);
+      }
+    }
+    
+    const success = failedDates.length === 0;
+    
+    if (success) {
+      logger.info(`Successfully processed all dates from ${formattedStartDate} to ${formattedEndDate}`);
+      logger.info(`Total rows processed: ${totalRowCount}`);
+    } else {
+      logger.warn(`Completed with errors. ${failedDates.length} dates failed out of ${dateRange.length}`);
+    }
+    
+    return {
+      success,
+      startDate,
+      endDate,
+      results,
+      totalRowCount,
+      failedDates: failedDates.length > 0 ? failedDates : undefined,
+    };
   }
 
   /**
@@ -40,27 +117,22 @@ export class EtlService {
       // テーブルが存在することを確認
       await this.ensureTableExists();
       
-      // クエリを構築して実行
-      const query = this.queryBuilder.buildImpressionsQuery(date);
-      const results = await this.bigQueryRepository.executeQuery(query);
-      
-      if (results.length === 0) {
-        logger.info(`No data found for date: ${formattedDate}`);
-        return {
-          success: true,
-          processedDate: date,
-          rowCount: 0,
-        };
-      }
-      
       // 既存データを削除
       const tableName = getFullyQualifiedTableName();
       await this.bigQueryRepository.deleteExistingData(tableName, date);
       
-      // 新データを挿入
-      const rowCount = await this.bigQueryRepository.insertData(tableName, results);
+      // クエリを構築
+      const query = this.queryBuilder.buildImpressionsQuery(date);
       
-      logger.info(`Successfully processed ${rowCount} rows for date: ${formattedDate}`);
+      // クエリを実行し、結果を直接テーブルに書き込む
+      const rowCount = await this.bigQueryRepository.executeQueryAndWriteToTable(query, tableName, date);
+      
+      if (rowCount === 0) {
+        logger.info(`No data found for date: ${formattedDate}`);
+      } else {
+        logger.info(`Successfully processed a total of ${rowCount} rows for date: ${formattedDate}`);
+      }
+      
       return {
         success: true,
         processedDate: date,

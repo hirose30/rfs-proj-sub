@@ -33,6 +33,7 @@ export function createApp(): express.Application {
   
   // ルートを設定
   app.get('/run', (req, res) => etlController.runEtl(req, res));
+  app.get('/run-range', (req, res) => etlController.runEtlDateRange(req, res));
   app.post('/reprocess', (req, res) => reprocessController.reprocessDate(req, res));
   
   // ヘルスチェックエンドポイント

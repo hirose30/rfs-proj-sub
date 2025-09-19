@@ -7,17 +7,38 @@ export class DateUtil {
    * @returns 前日の日付（JST）
    */
   static getYesterdayJST(): Date {
-    // テスト用のモック日付を使用している場合は、そのまま処理
+    // JSTタイムゾーンを明示的に設定
     const now = new Date();
+    // 日本時間に調整（UTC+9）
+    const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
     
     // 日付を1日前に設定
-    const yesterday = new Date(now);
+    const yesterday = new Date(jstNow);
     yesterday.setDate(yesterday.getDate() - 1);
     
     // 時刻部分をリセット（00:00:00.000）
     yesterday.setHours(0, 0, 0, 0);
     
     return yesterday;
+  }
+
+  /**
+   * 指定された開始日から終了日までの日付範囲を生成
+   * @param startDate 開始日
+   * @param endDate 終了日
+   * @returns 日付の配列
+   */
+  static generateDateRange(startDate: Date, endDate: Date): Date[] {
+    const dates: Date[] = [];
+    const currentDate = new Date(startDate);
+    
+    // 開始日から終了日まで1日ずつ増やしながら配列に追加
+    while (currentDate <= endDate) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return dates;
   }
 
   /**

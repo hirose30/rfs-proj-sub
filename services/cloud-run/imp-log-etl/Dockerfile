@@ -36,5 +36,5 @@ ENV PORT=8080
 # ヘルスチェックのためのポートを公開
 EXPOSE 8080
 
-# アプリケーションを実行
-CMD ["node", "dist/index.js"]
+# アプリケーションを実行（ガベージコレクションを明示的に実行できるようにする）
+CMD ["node", "--expose-gc", "dist/index.js"]

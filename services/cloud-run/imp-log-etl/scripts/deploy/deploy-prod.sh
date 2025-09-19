@@ -23,12 +23,23 @@ gcloud run deploy ${SERVICE_NAME} \
   --image ${GCR_IMAGE} \
   --platform managed \
   --region ${REGION} \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   --memory 1Gi \
   --cpu 2 \
   --concurrency 80 \
   --timeout 300 \
   --set-env-vars "NODE_ENV=production" \
   --project ${PROJECT_ID}
+
+# サービスアカウントの設定
+SERVICE_ACCOUNT="imp-log-etl-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# サービスアカウントにCloud Run呼び出し権限を付与
+echo "Granting invoker role to service account..."
+gcloud run services add-iam-policy-binding ${SERVICE_NAME} \
+  --member="serviceAccount:${SERVICE_ACCOUNT}" \
+  --role="roles/run.invoker" \
+  --region=${REGION} \
+  --project=${PROJECT_ID}
 
 echo "Deployment to production environment completed."
